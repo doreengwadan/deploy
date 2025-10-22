@@ -1,61 +1,77 @@
-import bcrypt from 'bcrypt';
-import postgres from 'postgres';
-import { users } from '../lib/placeholder-data';
+import bcrypt from "bcrypt";
+import postgres from "postgres";
+import { users } from "../lib/placeholder-data";
 
-// Configure connection with SSL and timeout for Neon
-const sql = postgres(process.env.POSTGRES_URL!, {
-  ssl: 'require',
-  connect_timeout: 100, // seconds
-  max_lifetime: 60, // optional: keep connections alive
-  idle_timeout: 30,  // optional
+// Use the pooled Supabase Postgres connection string
+const connectionString =
+  process.env.base_POSTGRES_URL ||
+  process.env.base_POSTGRES_PRISMA_URL ||
+  process.env.base_POSTGRES_URL_NON_POOLING;
+
+if (!connectionString) {
+  throw new Error("❌ Missing base_POSTGRES_URL in environment variables");
+}
+
+// Connect to Supabase Postgres
+const sql = postgres(connectionString, {
+  ssl: { rejectUnauthorized: false },
+  idle_timeout: 30,
+  connect_timeout: 30,
 });
 
 async function seedUsers() {
   try {
-    // Ensure UUID extension exists
-    await sql`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`;
+    console.log("🔄 Connecting to Supabase Postgres...");
+    await sql`SELECT 1;`;
+    console.log("✅ Connected successfully!");
 
-    // Create users table if it doesn't exist
+    // Create the users table if not exists
+    await sql`
+      CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    `;
+
     await sql`
       CREATE TABLE IF NOT EXISTS users (
         id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
-        email TEXT NOT NULL UNIQUE,
+        email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL
       );
     `;
 
-    // Insert placeholder users with hashed passwords
-    const insertedUsers = await Promise.all(
-      users.map(async (user) => {
-        const hashedPassword = await bcrypt.hash(user.password, 10);
-        return sql`
-          INSERT INTO users (id, name, email, password)
-          VALUES (${user.id}, ${user.name}, ${user.email}, ${hashedPassword})
-          ON CONFLICT (id) DO NOTHING;
-        `;
-      })
-    );
+    // Insert sample users
+    for (const user of users) {
+      const hashedPassword = await bcrypt.hash(user.password, 10);
+      await sql`
+        INSERT INTO users (name, email, password)
+        VALUES (${user.name}, ${user.email}, ${hashedPassword})
+        ON CONFLICT (email) DO NOTHING;
+      `;
+    }
 
-    return insertedUsers;
+    console.log("✅ Users table seeded successfully!");
+    return { message: "Users table seeded successfully" };
   } catch (error) {
-    console.error('Error seeding users:', error);
+    console.error("❌ Error seeding users:", error);
     throw error;
+  } finally {
+    await sql.end({ timeout: 5 });
   }
 }
 
-// API route to seed users
 export async function GET() {
   try {
-    await seedUsers();
-    return new Response(
-      JSON.stringify({ message: 'Users table seeded successfully' }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    const result = await seedUsers();
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   } catch (error) {
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : error }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        error: error instanceof Error ? error.message : String(error),
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 }

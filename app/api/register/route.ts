@@ -1,36 +1,63 @@
-import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcrypt';
-import postgres from 'postgres';
+import bcrypt from "bcrypt";
+import postgres from "postgres";
 
-const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
+// Connect using your Supabase Postgres URL
+const connectionString =
+  process.env.base_POSTGRES_URL ||
+  process.env.base_POSTGRES_PRISMA_URL ||
+  process.env.base_POSTGRES_URL_NON_POOLING;
 
-export async function POST(req: NextRequest) {
+if (!connectionString) {
+  throw new Error("❌ Missing Supabase connection string in env vars");
+}
+
+// Reuse the same connection config
+const sql = postgres(connectionString, {
+  ssl: { rejectUnauthorized: false },
+  idle_timeout: 30,
+  connect_timeout: 30,
+});
+
+export async function POST(req: Request) {
   try {
     const { name, email, password } = await req.json();
 
-    // Check if user already exists
-    const existingUser = await sql<{ id: string }[]>`
-      SELECT id FROM users WHERE email = ${email}
-    `;
-    if (existingUser.length > 0) {
-      return NextResponse.json({ error: 'Email already registered' }, { status: 400 });
+    if (!name || !email || !password) {
+      return new Response(
+        JSON.stringify({ error: "All fields are required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
     }
 
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Check if email already exists
+    const existing = await sql`SELECT * FROM users WHERE email = ${email}`;
+    if (existing.length > 0) {
+      return new Response(
+        JSON.stringify({ error: "Email already registered" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
-    // Insert the new user
+    // Hash password and insert user
+    const hashed = await bcrypt.hash(password, 10);
     await sql`
       INSERT INTO users (name, email, password)
-      VALUES (${name}, ${email}, ${hashedPassword})
+      VALUES (${name}, ${email}, ${hashed});
     `;
 
-    return NextResponse.json({ message: 'Registration successful' });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : error },
-      { status: 500 }
+    return new Response(
+      JSON.stringify({ message: "✅ Registration successful" }),
+      { status: 201, headers: { "Content-Type": "application/json" } }
     );
+  } catch (error) {
+    console.error("❌ Registration error:", error);
+    return new Response(
+      JSON.stringify({
+        error: error instanceof Error ? error.message : String(error),
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  } finally {
+    await sql.end({ timeout: 5 });
   }
 }

@@ -9,17 +9,33 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+  
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+  
+      const data = await res.json();
+  
+      if (!res.ok) {
+        setError(data.error || "Login failed");
+        return;
+      }
 
-    // Example: Replace with your authentication API call
-    if (email === 'user@mzuzu.com' && password === 'password123') {
-      router.push('/dashboard'); // redirect after successful login
-    } else {
-      setError('Invalid email or password');
+      // Save the user info in localStorage
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      // Redirect to dashboard
+      router.push("/dashboard");
+    } catch (err) {
+      setError("Something went wrong. Try again.");
     }
   };
-
+  
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-100 p-6">
       <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-lg">
