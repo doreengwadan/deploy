@@ -1,105 +1,207 @@
-'use client';
+"use client"
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { FiLogOut, FiUsers, FiBarChart2, FiSettings } from 'react-icons/fi';
+import Header from '../../componets/Header'
+import Link from 'next/link'
+import { useState, useEffect } from 'react'
 
-export default function DashboardPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    } else {
-      router.push('/login');
+export default function Home() {
+  // Sample recently released songs data
+  const recentSongs = [
+    {
+      id: 1,
+      title: "Midnight Dreams",
+      artist: "Ava Luna",
+      album: "Electric Nights",
+      duration: "3:45",
+      cover: "/covers/song1.jpg"
+    },
+    {
+      id: 2,
+      title: "Neon Lights",
+      artist: "The Synthetics",
+      album: "City Pulse",
+      duration: "4:20",
+      cover: "/covers/song2.jpg"
+    },
+    {
+      id: 3,
+      title: "Ocean Waves",
+      artist: "Coastal Breeze",
+      album: "Serenity",
+      duration: "3:15",
+      cover: "/covers/song3.jpg"
+    },
+    {
+      id: 4,
+      title: "Digital Love",
+      artist: "Cyber Pulse",
+      album: "Future Heart",
+      duration: "3:58",
+      cover: "/covers/song4.jpg"
     }
-  }, [router]);
+  ]
 
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    router.push('/login');
-  };
+  // Background images array
+  const backgroundImages = [
+    '/khed.jpg',
+    '/khed2.jpg', // Add your other images
+    '/khed3.jpg',
+    '/khed5.jpg'
+  ]
 
-  if (!user) return <p>Loading...</p>;
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
+
+  // Auto-rotate background images every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prevIndex) => 
+        prevIndex === backgroundImages.length - 1 ? 0 : prevIndex + 1
+      )
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [backgroundImages.length])
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white shadow-lg">
-        <div className="p-6">
-          <h2 className="text-2xl font-bold text-green-600">Admin Dashboard</h2>
-        </div>
-        <nav className="mt-10 flex flex-col gap-2">
-          <button className="flex items-center gap-3 px-6 py-2 hover:bg-gray-200 transition-colors">
-            <FiBarChart2 /> Overview
-          </button>
-          <button className="flex items-center gap-3 px-6 py-2 hover:bg-gray-200 transition-colors">
-            <FiUsers /> Users
-          </button>
-          <button className="flex items-center gap-3 px-6 py-2 hover:bg-gray-200 transition-colors">
-            <FiSettings /> Settings
-          </button>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-3 px-6 py-2 mt-auto text-red-600 hover:bg-red-100 transition-colors"
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+      <Header />
+      
+      {/* Background Image Container */}
+      <div className="absolute inset-0 z-0">
+        {/* Rotating Background Images */}
+        {backgroundImages.map((image, index) => (
+          <div
+            key={index}
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+              index === currentImageIndex ? 'opacity-100' : 'opacity-0'
+            }`}
           >
-            <FiLogOut /> Log Out
-          </button>
-        </nav>
-      </aside>
+            {/* Left Side Background Image */}
+            <div 
+              className="absolute left-0 top-16 w-1/2 h-full bg-cover bg-center bg-no-repeat"
+              style={{
+                backgroundImage: `url("${image}")`,
+                maskImage: 'linear-gradient(to right, black 0%, transparent 100%)',
+                WebkitMaskImage: 'linear-gradient(to right, black 0%, transparent 100%)'
+              }}
+            />
+            
+            {/* Gradient Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-900/80 via-slate-900/40 to-transparent" />
+          </div>
+        ))}
+        
+        {/* Image Indicator Dots */}
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-20 flex space-x-3">
+          {backgroundImages.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentImageIndex(index)}
+              className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                index === currentImageIndex 
+                  ? 'bg-purple-400 scale-125' 
+                  : 'bg-white/40 hover:bg-white/60'
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+      
+      <main className="container mx-auto px-4 py-8 relative z-10">
+        <div className="flex justify-between">
+          {/* Left Content */}
+          <div className="max-w-2xl">
+            <div className="text-left">
+              <h1 className="text-6xl font-bold text-white mb-6 leading-tight">
+                Welcome to <span className="text-purple-400">Kheman MusicStream</span>
+              </h1>
+              <p className="text-white/70 text-xl mb-8 leading-relaxed">
+                Discover millions of songs, create your perfect playlists, and share your musical journey with the world.
+              </p>
+              
+              {/* Feature List */}
+              <div className="space-y-4 mb-8">
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                  <span className="text-white/80">Stream unlimited music</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                  <span className="text-white/80">Create personalized playlists</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
+                  <span className="text-white/80">Discover new artists daily</span>
+                </div>
+              </div>
+              
+              {/* CTA Buttons */}
+              <div className="flex space-x-4">
+                {/* Start Listening Button with Link */}
+                <Link href="/khedman-songs">
+                  <button className="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-full font-semibold transition-all duration-300 transform hover:scale-105">
+                    Start Listening
+                  </button>
+                </Link>
+                
+                {/* Learn More Button with Link */}
+                <Link href="/about-khedman">
+                  <button className="bg-transparent border border-white/30 hover:border-white/50 text-white px-8 py-3 rounded-full font-semibold transition-all duration-300 hover:bg-white/10">
+                    Learn More
+                  </button>
+                </Link>
+              </div>
+            </div>
+          </div>
 
-      {/* Main content */}
-      <main className="flex-1 p-8">
-        {/* Header */}
-        <header className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Welcome, {user.name}</h1>
-          <p className="text-gray-600">{user.email}</p>
-        </header>
-
-        {/* Stats cards */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="rounded-lg bg-white p-6 shadow hover:shadow-md transition-shadow">
-            <h3 className="text-gray-500">Total Users</h3>
-            <p className="mt-2 text-2xl font-bold">120</p>
+          {/* Recently Released Songs - Right Side */}
+          <div className="w-80 ml-8">
+            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
+              <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
+                <span className="w-2 h-6 bg-purple-400 rounded-full mr-3"></span>
+                Recently Released
+              </h2>
+              
+              <div className="space-y-4">
+                {recentSongs.map((song) => (
+                  <div 
+                    key={song.id}
+                    className="flex items-center space-x-4 p-3 rounded-lg hover:bg-white/10 transition-all duration-300 cursor-pointer group"
+                  >
+                    {/* Album Cover Placeholder */}
+                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex-shrink-0 flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">ALBUM</span>
+                    </div>
+                    
+                    {/* Song Info */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-white font-semibold truncate group-hover:text-purple-300 transition-colors">
+                        {song.title}
+                      </h3>
+                      <p className="text-white/60 text-sm truncate">{song.artist}</p>
+                    </div>
+                    
+                    {/* Duration & Play Button */}
+                    <div className="flex items-center space-x-3">
+                      <span className="text-white/50 text-sm">{song.duration}</span>
+                      <button className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 transform hover:scale-110">
+                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* View All Button */}
+              <button className="w-full mt-6 py-3 bg-white/5 border border-white/20 rounded-xl text-white font-semibold hover:bg-white/10 transition-all duration-300">
+                View All New Releases
+              </button>
+            </div>
           </div>
-          <div className="rounded-lg bg-white p-6 shadow hover:shadow-md transition-shadow">
-            <h3 className="text-gray-500">Active Sessions</h3>
-            <p className="mt-2 text-2xl font-bold">35</p>
-          </div>
-          <div className="rounded-lg bg-white p-6 shadow hover:shadow-md transition-shadow">
-            <h3 className="text-gray-500">New Signups</h3>
-            <p className="mt-2 text-2xl font-bold">8</p>
-          </div>
-        </section>
-
-        {/* Charts placeholder */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="rounded-lg bg-white p-6 shadow h-64 flex items-center justify-center text-gray-400">
-            Chart Placeholder
-          </div>
-          <div className="rounded-lg bg-white p-6 shadow h-64 flex items-center justify-center text-gray-400">
-            Chart Placeholder
-          </div>
-        </section>
-
-        {/* Actions / Quick links */}
-        <section className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-          <div className="flex gap-4 flex-wrap">
-            <button className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500 transition-colors">
-              Add User
-            </button>
-            <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500 transition-colors">
-              Generate Report
-            </button>
-            <button className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-400 transition-colors">
-              Settings
-            </button>
-          </div>
-        </section>
+        </div>
       </main>
     </div>
-  );
+  )
 }
