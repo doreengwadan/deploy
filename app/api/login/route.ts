@@ -1,11 +1,11 @@
 import bcrypt from "bcrypt";
 import postgres from "postgres";
 
-// Supabase Postgres connection
+// Supabase Postgres connection - UPDATED VARIABLE NAMES
 const connectionString =
   process.env.base_POSTGRES_URL ||
-  process.env.base_POSTGRES_PRISMA_URL ||
-  process.env.base_POSTGRES_URL_NON_POOLING;
+  process.env.DATABASE_URL ||  // Common Vercel naming
+  process.env.POSTGRES_URL;    // Alternative naming
 
 if (!connectionString) {
   throw new Error("❌ Missing Supabase connection string in env vars");
@@ -50,7 +50,14 @@ export async function POST(req: Request) {
 
     // Optional: return user info or a JWT
     return new Response(
-      JSON.stringify({ message: "✅ Login successful", user: { id: user.id, name: user.name, email: user.email } }),
+      JSON.stringify({ 
+        message: "✅ Login successful", 
+        user: { 
+          id: user.id, 
+          name: user.name, 
+          email: user.email 
+        } 
+      }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   } catch (error) {
@@ -59,7 +66,5 @@ export async function POST(req: Request) {
       JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
-  } finally {
-    //await sql.end({ timeout: 5 });
   }
 }
