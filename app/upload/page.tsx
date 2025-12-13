@@ -1,16 +1,18 @@
-"use client"
+'use client'
 
-import { useState, useRef } from 'react'
-import Header from '../../componets/Header'
+import { useState, useRef, useEffect } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 export default function UploadPage() {
+  const [isMounted, setIsMounted] = useState(false)
   const router = useRouter()
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
-  const [uploadedFiles, setUploadedFiles] = useState<any[]>([])
   const [dragActive, setDragActive] = useState(false)
-  
+  const [uploadSuccess, setUploadSuccess] = useState('')
+  const [uploadError, setUploadError] = useState('')
+
   // Song details form state
   const [songDetails, setSongDetails] = useState({
     title: '',
@@ -33,6 +35,18 @@ export default function UploadPage() {
   const [selectedCover, setSelectedCover] = useState<File | null>(null)
   const [selectedLyrics, setSelectedLyrics] = useState<File | null>(null)
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
+
+  // Initialize on client only
+  useEffect(() => {
+    setIsMounted(true)
+    
+    // Clean up preview URLs on unmount
+    return () => {
+      if (coverPreview) {
+        URL.revokeObjectURL(coverPreview)
+      }
+    }
+  }, [])
 
   // Handle drag events
   const handleDrag = (e: React.DragEvent) => {
@@ -62,19 +76,20 @@ export default function UploadPage() {
   // Handle audio file selection
   const handleAudioSelect = (file: File) => {
     if (!file.type.startsWith('audio/')) {
-      alert('Please select an audio file (MP3, WAV, etc.)')
+      setUploadError('Please select an audio file (MP3, WAV, etc.)')
       return
     }
     
-    if (file.size > 50 * 1024 * 1024) { // 50MB limit
-      alert('File size too large. Maximum size is 50MB')
+    if (file.size > 50 * 1024 * 1024) {
+      setUploadError('File size too large. Maximum size is 50MB')
       return
     }
     
     setSelectedAudio(file)
+    setUploadError('')
     
     // Generate song title from filename
-    const fileName = file.name.replace(/\.[^/.]+$/, "") // Remove extension
+    const fileName = file.name.replace(/\.[^/.]+$/, "")
     setSongDetails(prev => ({
       ...prev,
       title: prev.title || fileName,
@@ -85,16 +100,22 @@ export default function UploadPage() {
   // Handle cover image selection
   const handleCoverSelect = (file: File) => {
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file (JPG, PNG, etc.)')
+      setUploadError('Please select an image file (JPG, PNG, etc.)')
       return
     }
     
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-      alert('Image size too large. Maximum size is 5MB')
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('Image size too large. Maximum size is 5MB')
       return
+    }
+    
+    // Clean up previous preview URL
+    if (coverPreview) {
+      URL.revokeObjectURL(coverPreview)
     }
     
     setSelectedCover(file)
+    setUploadError('')
     
     // Create preview URL
     const previewUrl = URL.createObjectURL(file)
@@ -103,12 +124,17 @@ export default function UploadPage() {
 
   // Handle lyrics file selection
   const handleLyricsSelect = (file: File) => {
-    if (!file.type.endsWith('.txt') && !file.type.endsWith('.lrc')) {
-      alert('Please select a lyrics file (.txt or .lrc)')
+    const validTypes = ['text/plain', 'application/lrc', 'application/x-subrip']
+    const validExtensions = ['.txt', '.lrc']
+    const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase()
+    
+    if (!validExtensions.includes(fileExtension) && !validTypes.includes(file.type)) {
+      setUploadError('Please select a lyrics file (.txt or .lrc)')
       return
     }
     
     setSelectedLyrics(file)
+    setUploadError('')
   }
 
   // Handle form input changes
@@ -123,62 +149,154 @@ export default function UploadPage() {
     }
   }
 
-  // Simulate upload progress
-  const simulateUpload = () => {
-    setIsUploading(true)
-    setUploadProgress(0)
-    
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval)
-          setIsUploading(false)
-          
-          // Add to uploaded files
-          const newFile = {
-            id: Date.now(),
-            name: selectedAudio?.name || 'Unknown',
-            size: selectedAudio?.size || 0,
-            date: new Date().toISOString(),
-            status: 'completed'
-          }
-          setUploadedFiles(prev => [newFile, ...prev])
-          
-          // Reset form after successful upload
-          setTimeout(() => {
-            resetForm()
-            alert('Upload successful! Your song is now being processed.')
-          }, 500)
-          
-          return 100
-        }
-        return prev + 5
-      })
-    }, 200)
-  }
-
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    // Validation
+  // Validate form
+  const validateForm = () => {
     if (!selectedAudio) {
-      alert('Please select an audio file to upload')
-      return
+      setUploadError('Please select an audio file to upload')
+      return false
     }
     
     if (!songDetails.title.trim()) {
-      alert('Please enter a song title')
-      return
+      setUploadError('Please enter a song title')
+      return false
     }
     
     if (!songDetails.artist.trim()) {
-      alert('Please enter an artist name')
+      setUploadError('Please enter an artist name')
+      return false
+    }
+    
+    return true
+  }
+
+  // Handle form submission - FIXED VERSION
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setUploadError('')
+    
+    if (!validateForm()) {
       return
     }
     
-    // Start upload simulation
-    simulateUpload()
+    setIsUploading(true)
+    setUploadProgress(0)
+    
+    try {
+      const formData = new FormData()
+      
+      // Add form fields
+      formData.append('title', songDetails.title)
+      formData.append('artist', songDetails.artist)
+      formData.append('album', songDetails.album)
+      formData.append('genre', songDetails.genre)
+      formData.append('releaseDate', songDetails.releaseDate)
+      formData.append('description', songDetails.description)
+      formData.append('isExplicit', songDetails.isExplicit.toString())
+      formData.append('isPublic', songDetails.isPublic.toString())
+      
+      // Add files
+      if (selectedAudio) {
+        formData.append('audioFile', selectedAudio)
+        console.log('Adding audio file:', selectedAudio.name, selectedAudio.size, 'bytes')
+      }
+      if (selectedCover) {
+        formData.append('coverFile', selectedCover)
+        console.log('Adding cover file:', selectedCover.name)
+      }
+      if (selectedLyrics) {
+        formData.append('lyricsFile', selectedLyrics)
+        console.log('Adding lyrics file:', selectedLyrics.name)
+      }
+      
+      // Simulate progress updates
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval)
+            return 90
+          }
+          return prev + 10
+        })
+      }, 300)
+      
+      console.log('Submitting form to /api/upload...')
+      
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+        cache: 'no-store',
+      })
+      
+      clearInterval(progressInterval)
+      setUploadProgress(100)
+      
+      console.log('Response status:', response.status, response.statusText)
+      
+      // Try to parse JSON response
+      let data
+      let responseText = ''
+      
+      try {
+        responseText = await response.text()
+        console.log('Response text:', responseText)
+        
+        if (responseText) {
+          data = JSON.parse(responseText)
+          console.log('Parsed response data:', data)
+        } else {
+          console.error('Empty response from server')
+          throw new Error('Server returned empty response')
+        }
+      } catch (parseError) {
+        console.error('Failed to parse JSON:', parseError)
+        console.error('Response text that failed to parse:', responseText)
+        
+      }
+      
+      if (!response.ok) {
+        console.error('API Error response:', data)
+        throw new Error(data?.error || data?.message || `Upload failed (Status: ${response.status})`)
+      }
+      
+      if (!data.success) {
+        throw new Error(data.error || data.message || 'Upload failed')
+      }
+      
+      setUploadSuccess(data.message || 'Upload successful! Your song is now available.')
+      
+      // Reset form after delay
+      setTimeout(() => {
+        resetForm()
+        setUploadSuccess('')
+        setUploadProgress(0)
+        
+        // Optional: Redirect to songs page after success
+        // setTimeout(() => {
+        //   router.push('/songs')
+        // }, 1000)
+      }, 3000)
+      
+    } catch (err) {
+      console.error('Upload error:', err)
+      
+      if (err instanceof Error) {
+        // Show more detailed error
+        if (err.message.includes('Failed to fetch') || err.message.includes('Network')) {
+          setUploadError('Network error. Check your connection and try again.')
+        } else if (err.message.includes('JSON')) {
+          setUploadError('Server error. Please check if the API is running.')
+        } else {
+          setUploadError(err.message || 'Upload failed. Please try again.')
+        }
+      } else {
+        setUploadError('Upload failed. Please try again.')
+      }
+      
+      // Reset progress on error
+      setUploadProgress(0)
+    } finally {
+      setIsUploading(false)
+    }
   }
 
   // Reset form
@@ -186,7 +304,13 @@ export default function UploadPage() {
     setSelectedAudio(null)
     setSelectedCover(null)
     setSelectedLyrics(null)
-    setCoverPreview(null)
+    
+    // Clean up preview URL
+    if (coverPreview) {
+      URL.revokeObjectURL(coverPreview)
+      setCoverPreview(null)
+    }
+    
     setSongDetails({
       title: '',
       artist: '',
@@ -221,135 +345,170 @@ export default function UploadPage() {
     'Synthwave', 'Indie', 'Alternative', 'Dance', 'House', 'Techno'
   ]
 
-  return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Mobile App Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-gray-900 border-b border-gray-800">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            {/* Back Button */}
-            <button 
-              className="p-2"
-              onClick={() => router.back()}
-            >
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-
-            {/* Page Title */}
-            <h1 className="text-lg font-semibold">Upload Music</h1>
-
-            {/* Upload Button */}
-            <button 
-              className={`px-3 py-1 rounded-full text-sm font-medium ${
-                isUploading 
-                  ? 'bg-gray-700 text-gray-400' 
-                  : 'bg-purple-600 hover:bg-purple-700 text-white'
-              }`}
-              onClick={handleSubmit}
-              disabled={isUploading}
-            >
-              {isUploading ? 'Uploading...' : 'Upload'}
-            </button>
-          </div>
+  // Don't render until client-side mounted
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p>Loading upload form...</p>
         </div>
       </div>
+    )
+  }
 
-      {/* Desktop Header */}
-      <div className="hidden md:block">
-        <Header />
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-purple-900/20 via-slate-900/50 to-slate-900"></div>
+        <div className="absolute inset-0 bg-noise opacity-10"></div>
       </div>
 
-      {/* Main Content */}
-      <main className={`pt-16 md:pt-0 pb-20 md:pb-6`}>
-        <div className="p-4 md:p-6 max-w-4xl mx-auto">
-          {/* Hero Section */}
-          <div className="mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold mb-2">Upload Your Music</h1>
-            <p className="text-gray-400 text-sm md:text-base">
+      {/* Header */}
+      <header className="relative z-10 pt-6 px-6">
+        <Link href="/" className="inline-flex items-center space-x-3 group">
+          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300">
+            <span className="text-white font-bold text-lg">K</span>
+          </div>
+          <span className="text-white text-2xl font-bold">Mayembe @Music</span>
+        </Link>
+      </header>
+
+      <main className="relative z-10 px-4 py-8">
+        <div className="max-w-6xl mx-auto">
+          {/* Page Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Upload Your Music</h1>
+            <p className="text-white/70 text-lg">
               Share your music with the world. Upload high-quality audio files with album art and lyrics.
             </p>
           </div>
 
-          {/* Upload Progress Bar */}
-          {isUploading && (
-            <div className="mb-6 bg-gray-900 rounded-xl p-4 border border-gray-800">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Uploading...</span>
-                <span className="text-sm text-gray-400">{uploadProgress}%</span>
+          {/* Success Message */}
+          {uploadSuccess && (
+            <div className="mb-6 p-4 bg-green-500/20 border border-green-500/50 rounded-xl text-green-300 text-center max-w-2xl mx-auto">
+              <div className="flex items-center justify-center space-x-2">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+                <span>{uploadSuccess}</span>
               </div>
-              <div className="w-full bg-gray-800 rounded-full h-2">
+            </div>
+          )}
+
+          {/* Error Message */}
+          {uploadError && (
+            <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300 text-center max-w-2xl mx-auto">
+              <div className="flex items-center justify-center space-x-2">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <span>{uploadError}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Upload Progress */}
+          {isUploading && (
+            <div className="mb-8 bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 max-w-2xl mx-auto">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold">Uploading {selectedAudio?.name}</h3>
+                    <p className="text-white/60 text-sm">{uploadProgress}% complete</p>
+                  </div>
+                </div>
+                <span className="text-white font-bold">{uploadProgress}%</span>
+              </div>
+              <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
                 <div 
                   className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${uploadProgress}%` }}
                 ></div>
               </div>
-              <p className="text-xs text-gray-400 mt-2">
+              <p className="text-white/50 text-sm mt-3">
                 Please keep this page open until upload is complete.
               </p>
             </div>
           )}
 
-          {/* Upload Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+         
+          {/* Main Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Column - File Upload */}
             <div className="lg:col-span-2 space-y-6">
               {/* Audio File Upload */}
-              <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-                <h2 className="text-lg font-semibold mb-4 flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                  </svg>
-                  Audio File
-                </h2>
-                
+              <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-white">Audio File</h2>
+                      <p className="text-white/60 text-sm">MP3, WAV, FLAC up to 50MB</p>
+                    </div>
+                  </div>
+                  {selectedAudio && (
+                    <button
+                      onClick={() => setSelectedAudio(null)}
+                      className="text-white/60 hover:text-white transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+
                 {selectedAudio ? (
-                  <div className="bg-gray-800 rounded-lg p-4 mb-4">
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center mr-3">
-                          <svg className="w-5 h-5 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
+                      <div className="flex items-center space-x-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-lg flex items-center justify-center">
+                          <svg className="w-6 h-6 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
                           </svg>
                         </div>
                         <div>
-                          <p className="font-medium text-sm">{selectedAudio.name}</p>
-                          <p className="text-gray-400 text-xs">{formatFileSize(selectedAudio.size)} • {selectedAudio.type}</p>
+                          <p className="font-medium text-white">{selectedAudio.name}</p>
+                          <p className="text-white/60 text-sm">
+                            {formatFileSize(selectedAudio.size)} • {selectedAudio.type}
+                          </p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => setSelectedAudio(null)}
-                        className="text-gray-400 hover:text-white"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
                     </div>
                   </div>
                 ) : (
                   <div
-                    className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+                    className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 ${
                       dragActive 
                         ? 'border-purple-500 bg-purple-500/10' 
-                        : 'border-gray-700 hover:border-gray-600'
+                        : 'border-white/20 hover:border-white/30'
                     }`}
                     onDragEnter={handleDrag}
                     onDragLeave={handleDrag}
                     onDragOver={handleDrag}
                     onDrop={handleDrop}
                   >
-                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-800 rounded-full flex items-center justify-center">
-                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full flex items-center justify-center">
+                      <svg className="w-10 h-10 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
                     </div>
-                    <p className="text-gray-300 mb-2">Drop your audio file here</p>
-                    <p className="text-gray-500 text-sm mb-4">MP3, WAV, FLAC up to 50MB</p>
+                    <p className="text-xl text-white mb-2">Drop your audio file here</p>
+                    <p className="text-white/60 mb-6">MP3, WAV, FLAC up to 50MB</p>
                     <button
                       onClick={() => audioFileRef.current?.click()}
-                      className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium"
+                      className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-medium rounded-xl transition-all duration-300 transform hover:scale-105"
                     >
                       Browse Files
                     </button>
@@ -364,18 +523,23 @@ export default function UploadPage() {
                 )}
               </div>
 
-              {/* Cover Art Upload */}
-              <div className="bg-gray-900 rounded-xl p-5 border border-gray-800">
-                <h2 className="text-lg font-semibold mb-4 flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  Cover Art (Optional)
-                </h2>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Cover Art & Lyrics */}
+              <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Cover Art & Lyrics</h2>
+                    <p className="text-white/60 text-sm">Optional but recommended</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Cover Preview */}
-                  <div className="aspect-square bg-gray-800 rounded-lg overflow-hidden">
+                  <div className="aspect-square bg-white/5 border border-white/10 rounded-xl overflow-hidden">
                     {coverPreview ? (
                       <img 
                         src={coverPreview} 
@@ -383,36 +547,44 @@ export default function UploadPage() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <div className="text-center">
-                          <svg className="w-12 h-12 mx-auto text-gray-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          <p className="text-gray-500 text-sm">No cover art</p>
-                        </div>
+                      <div className="w-full h-full flex flex-col items-center justify-center p-6">
+                        <svg className="w-16 h-16 text-white/20 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <p className="text-white/40 text-center">No cover art uploaded</p>
+                        <p className="text-white/30 text-sm mt-2">1000×1000px recommended</p>
                       </div>
                     )}
                   </div>
 
                   {/* Upload Controls */}
-                  <div>
-                    <div className="mb-4">
-                      <p className="text-gray-400 text-sm mb-3">Recommended: 1000x1000px JPG or PNG</p>
+                  <div className="space-y-6">
+                    {/* Cover Upload */}
+                    <div>
+                      <h3 className="text-white font-medium mb-3">Cover Art</h3>
                       {selectedCover ? (
-                        <div className="bg-gray-800 rounded-lg p-3">
+                        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                           <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium text-sm">{selectedCover.name}</p>
-                              <p className="text-gray-400 text-xs">{formatFileSize(selectedCover.size)}</p>
+                            <div className="flex items-center space-x-3">
+                              <svg className="w-5 h-5 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                              </svg>
+                              <div>
+                                <p className="font-medium text-white text-sm">{selectedCover.name}</p>
+                                <p className="text-white/60 text-xs">{formatFileSize(selectedCover.size)}</p>
+                              </div>
                             </div>
                             <button
                               onClick={() => {
                                 setSelectedCover(null)
-                                setCoverPreview(null)
+                                if (coverPreview) {
+                                  URL.revokeObjectURL(coverPreview)
+                                  setCoverPreview(null)
+                                }
                               }}
-                              className="text-gray-400 hover:text-white"
+                              className="text-white/60 hover:text-white transition-colors"
                             >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                               </svg>
                             </button>
@@ -421,9 +593,13 @@ export default function UploadPage() {
                       ) : (
                         <button
                           onClick={() => coverImageRef.current?.click()}
-                          className="w-full py-3 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium"
+                          className="w-full py-4 bg-white/5 border border-white/10 hover:border-white/20 rounded-xl text-white hover:text-white transition-all duration-300 flex flex-col items-center justify-center"
                         >
-                          Upload Cover Art
+                          <svg className="w-8 h-8 text-white/40 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                          <span className="text-sm">Upload Cover Image</span>
+                          <span className="text-xs text-white/40 mt-1">JPG, PNG up to 5MB</span>
                         </button>
                       )}
                       <input
@@ -434,22 +610,27 @@ export default function UploadPage() {
                         onChange={(e) => e.target.files?.[0] && handleCoverSelect(e.target.files[0])}
                       />
                     </div>
-                    
+
                     {/* Lyrics Upload */}
                     <div>
-                      <h3 className="text-sm font-medium mb-2">Lyrics File (Optional)</h3>
+                      <h3 className="text-white font-medium mb-3">Lyrics File (Optional)</h3>
                       {selectedLyrics ? (
-                        <div className="bg-gray-800 rounded-lg p-3">
+                        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                           <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium text-sm">{selectedLyrics.name}</p>
-                              <p className="text-gray-400 text-xs">{formatFileSize(selectedLyrics.size)}</p>
+                            <div className="flex items-center space-x-3">
+                              <svg className="w-5 h-5 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                              <div>
+                                <p className="font-medium text-white text-sm">{selectedLyrics.name}</p>
+                                <p className="text-white/60 text-xs">{formatFileSize(selectedLyrics.size)}</p>
+                              </div>
                             </div>
                             <button
                               onClick={() => setSelectedLyrics(null)}
-                              className="text-gray-400 hover:text-white"
+                              className="text-white/60 hover:text-white transition-colors"
                             >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                               </svg>
                             </button>
@@ -458,9 +639,12 @@ export default function UploadPage() {
                       ) : (
                         <button
                           onClick={() => lyricsFileRef.current?.click()}
-                          className="w-full py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm"
+                          className="w-full py-3 bg-white/5 border border-white/10 hover:border-white/20 rounded-xl text-white/70 hover:text-white transition-all duration-300 flex items-center justify-center space-x-2"
                         >
-                          Upload Lyrics (.txt or .lrc)
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <span className="text-sm">Upload Lyrics File</span>
                         </button>
                       )}
                       <input
@@ -478,24 +662,29 @@ export default function UploadPage() {
 
             {/* Right Column - Song Details */}
             <div className="lg:col-span-1">
-              <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 sticky top-6">
-                <h2 className="text-lg font-semibold mb-4 flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Song Details
-                </h2>
+              <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 sticky top-6">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Song Details</h2>
+                    <p className="text-white/60 text-sm">Tell us about your track</p>
+                  </div>
+                </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {/* Title */}
                   <div>
-                    <label className="block text-sm font-medium mb-1">Title *</label>
+                    <label className="block text-sm font-medium text-white/80 mb-2">Title *</label>
                     <input
                       type="text"
                       name="title"
                       value={songDetails.title}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
                       placeholder="Song title"
                       required
                     />
@@ -503,13 +692,13 @@ export default function UploadPage() {
 
                   {/* Artist */}
                   <div>
-                    <label className="block text-sm font-medium mb-1">Artist *</label>
+                    <label className="block text-sm font-medium text-white/80 mb-2">Artist *</label>
                     <input
                       type="text"
                       name="artist"
                       value={songDetails.artist}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
                       placeholder="Artist name"
                       required
                     />
@@ -517,228 +706,207 @@ export default function UploadPage() {
 
                   {/* Album */}
                   <div>
-                    <label className="block text-sm font-medium mb-1">Album (Optional)</label>
+                    <label className="block text-sm font-medium text-white/80 mb-2">Album (Optional)</label>
                     <input
                       type="text"
                       name="album"
                       value={songDetails.album}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
                       placeholder="Album name"
                     />
                   </div>
 
                   {/* Genre */}
                   <div>
-                    <label className="block text-sm font-medium mb-1">Genre</label>
+                    <label className="block text-sm font-medium text-white/80 mb-2">Genre</label>
                     <select
                       name="genre"
                       value={songDetails.genre}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-purple-500 text-sm appearance-none"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 appearance-none"
                     >
                       <option value="">Select genre</option>
                       {genreOptions.map(genre => (
-                        <option key={genre} value={genre}>{genre}</option>
+                        <option key={genre} value={genre} className="bg-slate-900">{genre}</option>
                       ))}
                     </select>
                   </div>
 
                   {/* Release Date */}
                   <div>
-                    <label className="block text-sm font-medium mb-1">Release Date</label>
+                    <label className="block text-sm font-medium text-white/80 mb-2">Release Date</label>
                     <input
                       type="date"
                       name="releaseDate"
                       value={songDetails.releaseDate}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
                     />
                   </div>
 
                   {/* Description */}
                   <div>
-                    <label className="block text-sm font-medium mb-1">Description (Optional)</label>
+                    <label className="block text-sm font-medium text-white/80 mb-2">Description</label>
                     <textarea
                       name="description"
                       value={songDetails.description}
                       onChange={handleInputChange}
                       rows={3}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-purple-500 text-sm resize-none"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 resize-none"
                       placeholder="Tell listeners about this track..."
                     />
                   </div>
 
                   {/* Toggles */}
-                  <div className="space-y-3 pt-2">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        name="isExplicit"
-                        checked={songDetails.isExplicit}
-                        onChange={handleInputChange}
-                        className="w-4 h-4 text-purple-600 bg-gray-800 border-gray-700 rounded focus:ring-purple-500"
-                      />
-                      <span className="ml-2 text-sm">Contains explicit content</span>
+                  <div className="space-y-4 pt-2">
+                    <label className="flex items-center space-x-3 cursor-pointer">
+                      <div className="relative">
+                        <input
+                          type="checkbox"
+                          name="isExplicit"
+                          checked={songDetails.isExplicit}
+                          onChange={handleInputChange}
+                          className="sr-only"
+                        />
+                        <div className={`w-10 h-6 rounded-full transition-all duration-300 ${songDetails.isExplicit ? 'bg-purple-500' : 'bg-white/10'}`}>
+                          <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 transform ${songDetails.isExplicit ? 'left-5' : 'left-1'}`}></div>
+                        </div>
+                      </div>
+                      <span className="text-white text-sm">Contains explicit content</span>
                     </label>
 
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        name="isPublic"
-                        checked={songDetails.isPublic}
-                        onChange={handleInputChange}
-                        className="w-4 h-4 text-purple-600 bg-gray-800 border-gray-700 rounded focus:ring-purple-500"
-                      />
-                      <span className="ml-2 text-sm">Make this track public</span>
+                    <label className="flex items-center space-x-3 cursor-pointer">
+                      <div className="relative">
+                        <input
+                          type="checkbox"
+                          name="isPublic"
+                          checked={songDetails.isPublic}
+                          onChange={handleInputChange}
+                          className="sr-only"
+                        />
+                        <div className={`w-10 h-6 rounded-full transition-all duration-300 ${songDetails.isPublic ? 'bg-purple-500' : 'bg-white/10'}`}>
+                          <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 transform ${songDetails.isPublic ? 'left-5' : 'left-1'}`}></div>
+                        </div>
+                      </div>
+                      <span className="text-white text-sm">Make this track public</span>
                     </label>
                   </div>
 
-                  {/* Upload Requirements */}
-                  <div className="pt-4 border-t border-gray-800">
-                    <h3 className="text-sm font-medium mb-2">Requirements</h3>
-                    <ul className="text-xs text-gray-400 space-y-1">
-                      <li className="flex items-center">
-                        <svg className="w-3 h-3 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                        Audio file required (MP3, WAV, FLAC)
-                      </li>
-                      <li className="flex items-center">
-                        <svg className="w-3 h-3 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                        Max file size: 50MB
-                      </li>
-                      <li className="flex items-center">
-                        <svg className="w-3 h-3 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                        Title and artist required
-                      </li>
-                    </ul>
-                  </div>
-
-                  {/* Desktop Upload Button */}
-                  <div className="hidden md:block pt-4">
+                  {/* Upload Button */}
+                  <div className="pt-6 border-t border-white/10">
                     <button
                       type="submit"
                       disabled={isUploading || !selectedAudio}
-                      className={`w-full py-3 rounded-lg font-medium text-sm transition-all ${
+                      className={`w-full py-4 rounded-xl font-semibold transition-all duration-300 transform ${
                         isUploading
-                          ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                          ? 'bg-white/10 text-white/40 cursor-not-allowed'
                           : selectedAudio
-                          ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white'
-                          : 'bg-gray-800 text-gray-400 cursor-not-allowed'
-                      }`}
+                          ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white hover:scale-105'
+                          : 'bg-white/10 text-white/40 cursor-not-allowed'
+                      } flex items-center justify-center space-x-2`}
                     >
-                      {isUploading ? `Uploading... ${uploadProgress}%` : 'Upload Song'}
+                      {isUploading ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          <span>Uploading... {uploadProgress}%</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clipRule="evenodd" />
+                          </svg>
+                          <span>Upload Song</span>
+                        </>
+                      )}
                     </button>
+                    
                     <button
                       type="button"
                       onClick={resetForm}
-                      className="w-full mt-2 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm"
+                      disabled={isUploading}
+                      className="w-full mt-3 py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-xl text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Clear Form
                     </button>
                   </div>
                 </form>
+
+                {/* Requirements */}
+                <div className="mt-6 pt-6 border-t border-white/10">
+                  <h3 className="text-white font-medium mb-3">Requirements</h3>
+                  <ul className="space-y-2">
+                    <li className="flex items-center text-sm text-white/60">
+                      <svg className="w-4 h-4 mr-2 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      Audio file required (MP3, WAV, FLAC)
+                    </li>
+                    <li className="flex items-center text-sm text-white/60">
+                      <svg className="w-4 h-4 mr-2 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      Max file size: 50MB
+                    </li>
+                    <li className="flex items-center text-sm text-white/60">
+                      <svg className="w-4 h-4 mr-2 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      Title and artist required
+                    </li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Recent Uploads */}
-          {uploadedFiles.length > 0 && (
-            <div className="mt-8">
-              <h2 className="text-lg font-semibold mb-4">Recent Uploads</h2>
-              <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-800">
-                        <th className="text-left p-4 text-sm font-medium text-gray-400">File</th>
-                        <th className="text-left p-4 text-sm font-medium text-gray-400">Size</th>
-                        <th className="text-left p-4 text-sm font-medium text-gray-400">Date</th>
-                        <th className="text-left p-4 text-sm font-medium text-gray-400">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {uploadedFiles.map((file) => (
-                        <tr key={file.id} className="border-b border-gray-800 hover:bg-gray-800/50">
-                          <td className="p-4">
-                            <div className="flex items-center">
-                              <div className="w-8 h-8 bg-purple-500/20 rounded flex items-center justify-center mr-3">
-                                <svg className="w-4 h-4 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                                </svg>
-                              </div>
-                              <span className="text-sm">{file.name}</span>
-                            </div>
-                          </td>
-                          <td className="p-4 text-sm text-gray-400">{formatFileSize(file.size)}</td>
-                          <td className="p-4 text-sm text-gray-400">
-                            {new Date(file.date).toLocaleDateString()}
-                          </td>
-                          <td className="p-4">
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400">
-                              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                              Completed
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Back to Home */}
+          <div className="text-center mt-8">
+            <Link 
+              href="/" 
+              className="inline-flex items-center space-x-2 text-white/60 hover:text-white transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span>Back to home</span>
+            </Link>
+          </div>
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-gray-900 border-t border-gray-800">
-        <div className="flex justify-around items-center py-2">
-          <button className="flex flex-col items-center p-2">
-            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+      {/* Background Music Note Animation */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute text-white/5 animate-float"
+            style={{
+              left: `${10 + i * 10}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${i * 3}s`,
+              animationDuration: `${20 + i * 5}s`
+            }}
+          >
+            <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
             </svg>
-            <span className="text-xs text-gray-400 mt-1">Home</span>
-          </button>
-          
-          <button className="flex flex-col items-center p-2">
-            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-            </svg>
-            <span className="text-xs text-gray-400 mt-1">Browse</span>
-          </button>
-          
-          <button className="flex flex-col items-center p-2 -mt-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg">
-              <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <span className="text-xs text-gray-400 mt-1">Play</span>
-          </button>
-          
-          <button className="flex flex-col items-center p-2">
-            <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            <span className="text-xs text-purple-400 mt-1">Upload</span>
-          </button>
-          
-          <button className="flex flex-col items-center p-2">
-            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-            <span className="text-xs text-gray-400 mt-1">Profile</span>
-          </button>
-        </div>
+          </div>
+        ))}
       </div>
+
+      <style jsx>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-30px) rotate(5deg); }
+        }
+        .animate-float {
+          animation: float 20s ease-in-out infinite;
+        }
+        .bg-noise {
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+      `}</style>
     </div>
   )
 }

@@ -143,9 +143,9 @@ export default function RegisterPage() {
       <header className="relative z-10 pt-6 px-6">
         <Link href="/" className="inline-flex items-center space-x-3 group">
           <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300">
-            <span className="text-white font-bold text-lg">K</span>
+            <span className="text-white font-bold text-lg">M</span>
           </div>
-          <span className="text-white text-2xl font-bold">Kheman MusicStream</span>
+          <span className="text-white text-2xl font-bold">Mayembe @Music</span>
         </Link>
       </header>
 
@@ -155,7 +155,7 @@ export default function RegisterPage() {
           <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl">
             {/* Header */}
             <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-white mb-2">Join Kheman Music</h1>
+              <h1 className="text-3xl font-bold text-white mb-2">Join Mayembe Music</h1>
               <p className="text-white/70">Create your account to start streaming</p>
             </div>
 
