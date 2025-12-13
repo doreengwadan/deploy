@@ -56,7 +56,11 @@ interface SongsResponse {
   offset: number;
 }
 
-export async function GET(request: NextRequest) {
+// GET handler with params
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '20');
@@ -196,22 +200,31 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Handle other HTTP methods
-export async function POST() {
+// Handle other HTTP methods with params
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   return NextResponse.json(
     { error: 'Method not allowed. Use GET.' },
     { status: 405 }
   );
 }
 
-export async function PUT() {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   return NextResponse.json(
     { error: 'Method not allowed. Use GET.' },
     { status: 405 }
   );
 }
 
-export async function DELETE() {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   return NextResponse.json(
     { error: 'Method not allowed. Use GET.' },
     { status: 405 }
