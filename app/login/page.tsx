@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
@@ -10,6 +10,17 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+
+  // Check for registration success message in URL
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('message') === 'registration_success') {
+        setShowSuccessMessage(true);
+      }
+    }
+  }, []);
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -36,34 +47,61 @@ export default function LoginPage() {
     }
 
     setIsLoading(true);
+    setErrors({});
 
     try {
-      // For demo purposes, simulate API call
-      setTimeout(() => {
-        setIsLoading(false);
-        
-        // Mock authentication - in a real app, you would:
-        // 1. Send credentials to your backend
-        // 2. Handle the response
-        // 3. Save token/user data
-        
-        const mockUser = {
-          id: '1',
-          name: email.split('@')[0],
-          email: email,
-          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(email.split('@')[0])}&background=8b5cf6&color=fff`
-        };
-        
-        // Save user info
-        localStorage.setItem('khedman_user', JSON.stringify(mockUser));
-        
-        // Redirect to songs page
-        router.push('/khedman-songs');
-      }, 2000);
+      // Call our API route
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      // Save user data to localStorage
+      localStorage.setItem('khedman_user', JSON.stringify(data.user));
+      localStorage.setItem('khedman_session', JSON.stringify(data.session));
+
+      // Redirect to home page
+      router.push('/');
 
     } catch (err) {
+      console.error('Login error:', err);
+      
+      if (err instanceof Error) {
+        setErrors({ 
+          form: err.message 
+        });
+      } else {
+        setErrors({ 
+          form: 'Login failed. Please try again.' 
+        });
+      }
+      
       setIsLoading(false);
-      setErrors({ form: 'Login failed. Please try again.' });
+    }
+  };
+
+  // Handle social login (simplified for now)
+  const handleSocialLogin = async (provider: string) => {
+    try {
+      // For now, just show a message since OAuth requires additional setup
+      alert(`${provider} login will be available soon! For now, please use email/password.`);
+      
+      // In a real implementation, you would redirect to Supabase OAuth:
+      // window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=${provider}&redirect_to=${window.location.origin}/auth/callback`;
+    } catch (error) {
+      setErrors({ form: `${provider} login is not available yet.` });
     }
   };
 
@@ -108,6 +146,13 @@ export default function LoginPage() {
               <h1 className="text-3xl font-bold text-white mb-2">Welcome Back</h1>
               <p className="text-white/70">Sign in to continue your musical journey</p>
             </div>
+
+            {/* Success message from URL query */}
+            {showSuccessMessage && (
+              <div className="">
+                
+              </div>
+            )}
 
             {/* Error Message */}
             {errors.form && (
@@ -224,7 +269,10 @@ export default function LoginPage() {
 
             {/* Social Login */}
             <div className="grid grid-cols-2 gap-4">
-              <button className="flex items-center justify-center space-x-2 bg-white/5 hover:bg-white/10 border border-white/20 rounded-xl py-3 px-4 transition-all duration-300 group">
+              <button 
+                onClick={() => handleSocialLogin('google')}
+                className="flex items-center justify-center space-x-2 bg-white/5 hover:bg-white/10 border border-white/20 rounded-xl py-3 px-4 transition-all duration-300 group cursor-pointer"
+              >
                 <svg className="w-5 h-5 text-white group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
                   <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                   <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -234,7 +282,10 @@ export default function LoginPage() {
                 <span className="text-white text-sm font-medium">Google</span>
               </button>
 
-              <button className="flex items-center justify-center space-x-2 bg-white/5 hover:bg-white/10 border border-white/20 rounded-xl py-3 px-4 transition-all duration-300 group">
+              <button 
+                onClick={() => handleSocialLogin('twitter')}
+                className="flex items-center justify-center space-x-2 bg-white/5 hover:bg-white/10 border border-white/20 rounded-xl py-3 px-4 transition-all duration-300 group cursor-pointer"
+              >
                 <svg className="w-5 h-5 text-white group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
                 </svg>
@@ -284,14 +335,26 @@ export default function LoginPage() {
         ))}
       </div>
 
+      {/* Add fade-in animation for success message */}
       <style jsx>{`
         @keyframes float {
           0%, 100% { transform: translateY(0px) rotate(0deg); }
           50% { transform: translateY(-20px) rotate(10deg); }
         }
+        
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
         .animate-float {
           animation: float 20s ease-in-out infinite;
         }
+        
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out;
+        }
+        
         .bg-noise {
           background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
         }
