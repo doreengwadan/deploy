@@ -30,7 +30,7 @@ export default function Header() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside or pressing Escape
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -43,11 +43,27 @@ export default function Header() {
       }
     }
 
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowDropdown(false)
+      }
+    }
+
+    // Prevent body scroll when dropdown is open on mobile
+    if (showDropdown) {
+      document.body.style.overflow = 'hidden'
+      document.addEventListener('keydown', handleEscapeKey)
+    } else {
+      document.body.style.overflow = ''
+    }
+
     document.addEventListener('mousedown', handleClickOutside)
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleEscapeKey)
+      document.body.style.overflow = '' // Cleanup on unmount
     }
-  }, [])
+  }, [showDropdown])
 
   // Check if user is logged in
   useEffect(() => {
@@ -133,6 +149,10 @@ export default function Header() {
     setShowDropdown(!showDropdown)
   }
 
+  const closeDropdown = () => {
+    setShowDropdown(false)
+  }
+
   if (isLoading) {
     return (
       <header className="music-waves-bg text-white fixed top-0 left-0 right-0 z-50">
@@ -160,7 +180,7 @@ export default function Header() {
     <header className={`music-waves-bg text-white fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
       isScrolled ? 'shadow-lg bg-gray-900/95 backdrop-blur-md' : ''
     }`}>
-      {/* Animated Music Notes - Remove overflow hidden if causing issues */}
+      {/* Animated Music Notes */}
       <div className="music-notes" style={{ overflow: 'visible' }}>
         {['♪', '♫', '🎵', '🎶', '♪', '♫', '🎵', '🎶'].map((note, index) => (
           <div key={index} className="music-note">
@@ -169,7 +189,7 @@ export default function Header() {
         ))}
       </div>
       
-      {/* Header Content - Add relative positioning */}
+      {/* Header Content */}
       <div className="header-glass relative z-40">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -181,7 +201,6 @@ export default function Header() {
               <span className="text-white text-xl font-bold hidden sm:block">Kheman MusicStream</span>
             </Link>
 
-            
             {/* Right: User Profile or Auth Buttons */}
             <div className="ml-8">
               {user ? (
@@ -221,84 +240,6 @@ export default function Header() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
-                  
-                  {/* Dropdown Menu - Fixed positioning */}
-                  {showDropdown && (
-                    <div 
-                      className="absolute right-0 mt-2 w-56 bg-gray-900/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 py-2 z-[100] animate-fadeIn"
-                      style={{ 
-                        position: 'absolute',
-                        top: '100%',
-                        right: 0,
-                        marginTop: '0.5rem',
-                        overflow: 'visible'
-                      }}
-                    >
-                      <div className="px-4 py-3 border-b border-white/10">
-                        <p className="text-sm text-white/90 font-medium truncate">{user.name}</p>
-                        <p className="text-xs text-white/60 truncate">{user.email}</p>
-                      </div>
-                      
-                      <div className="py-1">
-                        <Link
-                          href="/profile"
-                          onClick={() => setShowDropdown(false)}
-                          className="flex items-center space-x-3 px-4 py-3 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-300"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                          <span className="text-sm">My Profile</span>
-                        </Link>
-                        
-                        <Link
-                          href="/library"
-                          onClick={() => setShowDropdown(false)}
-                          className="flex items-center space-x-3 px-4 py-3 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-300"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                          </svg>
-                          <span className="text-sm">My Library</span>
-                        </Link>
-                        
-                        <Link
-                          href="/uploads"
-                          onClick={() => setShowDropdown(false)}
-                          className="flex items-center space-x-3 px-4 py-3 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-300"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                          </svg>
-                          <span className="text-sm">My Uploads</span>
-                        </Link>
-                        
-                        <Link
-                          href="/settings"
-                          onClick={() => setShowDropdown(false)}
-                          className="flex items-center space-x-3 px-4 py-3 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-300"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                          <span className="text-sm">Settings</span>
-                        </Link>
-                        
-                        <div className="border-t border-white/10 my-1"></div>
-                        
-                        <button
-                          onClick={handleLogout}
-                          className="flex items-center space-x-3 w-full text-left px-4 py-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors duration-300"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                          </svg>
-                          <span className="text-sm">Logout</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               ) : (
                 <div className="flex items-center space-x-4">
@@ -321,12 +262,127 @@ export default function Header() {
         </div>
       </div>
 
+      {/* Full Screen Mobile Dropdown */}
+      {showDropdown && user && (
+        <>
+          {/* Backdrop Overlay */}
+          <div 
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] animate-fadeIn"
+            onClick={closeDropdown}
+          />
+          
+          {/* Full Screen Dropdown Menu */}
+          <div 
+            ref={dropdownRef}
+            className="fixed inset-0 z-[101] flex flex-col animate-slideUp"
+          >
+            {/* Header with user info and close button */}
+            <div className="bg-gradient-to-b from-gray-900 to-gray-800 pt-20 px-6 pb-6">
+              <div className="flex justify-between items-center mb-8">
+                <div className="flex items-center space-x-4">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center overflow-hidden">
+                    {user.avatar ? (
+                      <img 
+                        src={user.avatar} 
+                        alt={user.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-white text-2xl font-bold">
+                        {user.name.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <h2 className="text-white text-2xl font-bold">{user.name}</h2>
+                    <p className="text-white/70 text-sm">{user.email}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={closeDropdown}
+                  className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors duration-300"
+                  aria-label="Close menu"
+                >
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Menu Items */}
+            <div className="flex-1 bg-gray-900 overflow-y-auto">
+              <div className="py-4">
+                <div className="space-y-1">
+                  <Link
+                    href="/profile"
+                    onClick={closeDropdown}
+                    className="flex items-center space-x-4 px-6 py-4 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-300 text-lg"
+                  >
+                    <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <span>My Profile</span>
+                  </Link>
+                  
+                  <Link
+                    href="/library"
+                    onClick={closeDropdown}
+                    className="flex items-center space-x-4 px-6 py-4 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-300 text-lg"
+                  >
+                    <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    <span>My Library</span>
+                  </Link>
+                  
+                  <Link
+                    href="/uploads"
+                    onClick={closeDropdown}
+                    className="flex items-center space-x-4 px-6 py-4 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-300 text-lg"
+                  >
+                    <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <span>My Uploads</span>
+                  </Link>
+                  
+                  <Link
+                    href="/settings"
+                    onClick={closeDropdown}
+                    className="flex items-center space-x-4 px-6 py-4 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-300 text-lg"
+                  >
+                    <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span>Settings</span>
+                  </Link>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-white/10 my-6 mx-6"></div>
+
+                {/* Logout Button */}
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center space-x-4 w-full text-left px-6 py-4 text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors duration-300 text-lg"
+                >
+                  <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  <span>Logout</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       <style jsx>{`
         .music-waves-bg {
           background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(76, 29, 149, 0.95) 50%, rgba(15, 23, 42, 0.95) 100%);
           position: relative;
-          /* Remove overflow: hidden if it's causing issues */
-          /* overflow: hidden; */
         }
 
         .header-glass {
@@ -343,8 +399,6 @@ export default function Header() {
           width: 100%;
           height: 100%;
           pointer-events: none;
-          /* Remove overflow hidden */
-          /* overflow: hidden; */
           z-index: 1;
         }
 
@@ -355,7 +409,15 @@ export default function Header() {
           animation: floatNote 8s linear infinite;
         }
 
-        /* Music note positions... */
+        /* Music note positions (keep your existing positions) */
+        .music-note:nth-child(1) { top: 10%; left: 5%; animation-delay: 0s; }
+        .music-note:nth-child(2) { top: 20%; left: 15%; animation-delay: 1s; }
+        .music-note:nth-child(3) { top: 15%; left: 25%; animation-delay: 2s; }
+        .music-note:nth-child(4) { top: 25%; left: 35%; animation-delay: 3s; }
+        .music-note:nth-child(5) { top: 10%; left: 45%; animation-delay: 4s; }
+        .music-note:nth-child(6) { top: 20%; left: 55%; animation-delay: 5s; }
+        .music-note:nth-child(7) { top: 15%; left: 65%; animation-delay: 6s; }
+        .music-note:nth-child(8) { top: 25%; left: 75%; animation-delay: 7s; }
 
         @keyframes floatNote {
           0% {
@@ -377,16 +439,50 @@ export default function Header() {
         @keyframes fadeIn {
           from {
             opacity: 0;
-            transform: translateY(-10px);
           }
           to {
             opacity: 1;
+          }
+        }
+
+        @keyframes slideUp {
+          from {
+            transform: translateY(100%);
+          }
+          to {
             transform: translateY(0);
           }
         }
 
         .animate-fadeIn {
-          animation: fadeIn 0.2s ease-out;
+          animation: fadeIn 0.3s ease-out;
+        }
+
+        .animate-slideUp {
+          animation: slideUp 0.3s ease-out;
+        }
+
+        /* Responsive design: Show full screen on mobile, regular dropdown on desktop */
+        @media (min-width: 768px) {
+          .fixed.inset-0.z-\\[101\\] {
+            display: none !important;
+          }
+          
+          .fixed.inset-0.bg-black\\/70 {
+            display: none !important;
+          }
+          
+          /* Show regular dropdown on desktop */
+          .relative .absolute {
+            display: block !important;
+          }
+        }
+
+        @media (max-width: 767px) {
+          /* Hide regular dropdown on mobile */
+          .relative .absolute {
+            display: none !important;
+          }
         }
       `}</style>
     </header>
