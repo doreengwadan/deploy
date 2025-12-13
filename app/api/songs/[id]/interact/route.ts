@@ -5,9 +5,10 @@ const SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3Mi
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params; // Await the Promise
     const songId = parseInt(params.id);
     if (isNaN(songId)) {
       return NextResponse.json(
@@ -239,9 +240,10 @@ export async function POST(
 // Handle toggle like/dislike (for toggling between like and dislike)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params; // Await the Promise
     const songId = parseInt(params.id);
     if (isNaN(songId)) {
       return NextResponse.json(
@@ -419,6 +421,57 @@ export async function PUT(
       { 
         success: false,
         error: 'Failed to update interaction',
+        details: error?.message || 'Unknown error'
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// Add DELETE and GET methods if needed
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const params = await context.params;
+    const songId = parseInt(params.id);
+    
+    return NextResponse.json({
+      success: true,
+      message: 'DELETE not implemented yet',
+      songId
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      { 
+        success: false,
+        error: 'Failed to process DELETE request',
+        details: error?.message || 'Unknown error'
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const params = await context.params;
+    const songId = parseInt(params.id);
+    
+    return NextResponse.json({
+      success: true,
+      message: 'GET not implemented yet',
+      songId
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      { 
+        success: false,
+        error: 'Failed to process GET request',
         details: error?.message || 'Unknown error'
       },
       { status: 500 }
