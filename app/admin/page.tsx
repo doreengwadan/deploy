@@ -4,55 +4,179 @@ import { useState, useEffect } from 'react'
 import Header from '../../componets/Header'
 import { useRouter } from 'next/navigation'
 
+// Define Types
+interface User {
+  id: number
+  name: string
+  email: string
+  role: string
+  status: string
+  joined: string
+}
+
+interface Song {
+  id: number
+  title: string
+  artist: string
+  genre: string
+  plays: number
+  status: string
+  created_at?: string
+}
+
+interface Report {
+  id: number
+  song: string
+  artist: string
+  reporter: string
+  reason: string
+  status: string
+  created_at?: string
+}
+
+interface Activity {
+  id: number
+  user: string
+  action: string
+  time: string
+  type: string
+  created_at?: string
+}
+
+interface Stats {
+  totalUsers: number
+  totalSongs: number
+  totalPlays: number
+  totalUploads: number
+  activeUsers: number
+  revenue: number
+}
+
 export default function AdminPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('dashboard')
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [currentTime, setCurrentTime] = useState('')
+  
+  const [loading, setLoading] = useState({
+    stats: true,
+    users: true,
+    songs: true,
+    reports: true,
+    activities: true
+  })
 
   // Statistics state
-  const [stats, setStats] = useState({
-    totalUsers: 12543,
-    totalSongs: 8921,
-    totalPlays: 1254300,
-    totalUploads: 324,
-    activeUsers: 2431,
-    revenue: 12543.50
+  const [stats, setStats] = useState<Stats>({
+    totalUsers: 0,
+    totalSongs: 0,
+    totalPlays: 0,
+    totalUploads: 0,
+    activeUsers: 0,
+    revenue: 0
   })
 
   // Recent activities
-  const [recentActivities, setRecentActivities] = useState([
-    { id: 1, user: 'John Doe', action: 'uploaded a new song', time: '2 min ago', type: 'upload' },
-    { id: 2, user: 'Sarah Smith', action: 'reported inappropriate content', time: '15 min ago', type: 'report' },
-    { id: 3, user: 'Mike Johnson', action: 'subscribed to premium', time: '1 hour ago', type: 'subscription' },
-    { id: 4, user: 'Emma Wilson', action: 'created a playlist', time: '2 hours ago', type: 'playlist' },
-    { id: 5, user: 'Alex Brown', action: 'uploaded a new song', time: '3 hours ago', type: 'upload' },
-  ])
+  const [recentActivities, setRecentActivities] = useState<Activity[]>([])
 
   // Reported content
-  const [reportedContent, setReportedContent] = useState([
-    { id: 1, song: 'Midnight Dreams', artist: 'Ava Luna', reporter: 'User123', reason: 'Copyright', status: 'pending' },
-    { id: 2, song: 'Neon Lights', artist: 'The Synthetics', reporter: 'User456', reason: 'Explicit Content', status: 'reviewed' },
-    { id: 3, song: 'Ocean Waves', artist: 'Coastal Breeze', reporter: 'User789', reason: 'Hate Speech', status: 'pending' },
-  ])
+  const [reportedContent, setReportedContent] = useState<Report[]>([])
 
   // User management
-  const [users, setUsers] = useState([
-    { id: 1, name: 'John Doe', email: 'john@example.com', role: 'user', status: 'active', joined: '2024-01-15' },
-    { id: 2, name: 'Sarah Smith', email: 'sarah@example.com', role: 'premium', status: 'active', joined: '2024-01-10' },
-    { id: 3, name: 'Mike Johnson', email: 'mike@example.com', role: 'artist', status: 'suspended', joined: '2024-01-05' },
-    { id: 4, name: 'Emma Wilson', email: 'emma@example.com', role: 'user', status: 'active', joined: '2024-01-01' },
-    { id: 5, name: 'Alex Brown', email: 'alex@example.com', role: 'admin', status: 'active', joined: '2023-12-28' },
-  ])
+  const [users, setUsers] = useState<User[]>([])
 
   // Song management
-  const [songs, setSongs] = useState([
-    { id: 1, title: 'Midnight Dreams', artist: 'Ava Luna', genre: 'Electronic', plays: 12543, status: 'published' },
-    { id: 2, title: 'Neon Lights', artist: 'The Synthetics', genre: 'Synthwave', plays: 8921, status: 'published' },
-    { id: 3, title: 'Ocean Waves', artist: 'Coastal Breeze', genre: 'Ambient', plays: 6543, status: 'pending' },
-    { id: 4, title: 'Digital Love', artist: 'Cyber Pulse', genre: 'Electronic', plays: 4321, status: 'published' },
-    { id: 5, title: 'City Lights', artist: 'Urban Flow', genre: 'Pop', plays: 3210, status: 'rejected' },
-  ])
+  const [songs, setSongs] = useState<Song[]>([])
+
+  // Fetch statistics
+  const fetchStats = async () => {
+    try {
+      const response = await fetch('/api/admin/stats')
+      if (!response.ok) throw new Error('Failed to fetch stats')
+      const data = await response.json()
+      setStats(data)
+    } catch (error) {
+      console.error('Error fetching stats:', error)
+    } finally {
+      setLoading(prev => ({ ...prev, stats: false }))
+    }
+  }
+
+  // Fetch users
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch('/api/admin/users')
+      if (!response.ok) throw new Error('Failed to fetch users')
+      const data = await response.json()
+      setUsers(data.users || [])
+    } catch (error) {
+      console.error('Error fetching users:', error)
+    } finally {
+      setLoading(prev => ({ ...prev, users: false }))
+    }
+  }
+
+  // Fetch songs
+  const fetchSongs = async () => {
+    try {
+      const response = await fetch('/api/admin/songs')
+      if (!response.ok) throw new Error('Failed to fetch songs')
+      const data = await response.json()
+      setSongs(data.songs || [])
+    } catch (error) {
+      console.error('Error fetching songs:', error)
+    } finally {
+      setLoading(prev => ({ ...prev, songs: false }))
+    }
+  }
+
+  // Fetch reports
+  const fetchReports = async () => {
+    try {
+      const response = await fetch('/api/admin/reports')
+      if (!response.ok) throw new Error('Failed to fetch reports')
+      const data = await response.json()
+      setReportedContent(data.reports || [])
+    } catch (error) {
+      console.error('Error fetching reports:', error)
+    } finally {
+      setLoading(prev => ({ ...prev, reports: false }))
+    }
+  }
+
+  // Fetch activities
+  const fetchActivities = async () => {
+    try {
+      const response = await fetch('/api/admin/activities')
+      if (!response.ok) throw new Error('Failed to fetch activities')
+      const data = await response.json()
+      setRecentActivities(data.activities || [])
+    } catch (error) {
+      console.error('Error fetching activities:', error)
+    } finally {
+      setLoading(prev => ({ ...prev, activities: false }))
+    }
+  }
+
+  // Fetch all data on component mount
+  useEffect(() => {
+    fetchStats()
+    fetchUsers()
+    fetchSongs()
+    fetchReports()
+    fetchActivities()
+
+    // Set up polling for real-time updates (every 30 seconds)
+    const interval = setInterval(() => {
+      if (activeTab === 'dashboard') fetchStats()
+      if (activeTab === 'users') fetchUsers()
+      if (activeTab === 'songs') fetchSongs()
+      if (activeTab === 'reports') fetchReports()
+      fetchActivities() // Always update activities
+    }, 30000)
+
+    return () => clearInterval(interval)
+  }, [activeTab])
 
   // Update current time
   useEffect(() => {
@@ -75,44 +199,69 @@ export default function AdminPage() {
   }, [])
 
   // Handle user actions
-  const handleUserAction = (userId: number, action: string) => {
-    if (action === 'suspend') {
-      setUsers(users.map(user => 
-        user.id === userId ? { ...user, status: 'suspended' } : user
-      ))
-    } else if (action === 'activate') {
-      setUsers(users.map(user => 
-        user.id === userId ? { ...user, status: 'active' } : user
-      ))
-    } else if (action === 'delete') {
-      setUsers(users.filter(user => user.id !== userId))
+  const handleUserAction = async (userId: number, action: string) => {
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      })
+
+      if (response.ok) {
+        fetchUsers() // Refresh user list
+      }
+    } catch (error) {
+      console.error('Error updating user:', error)
     }
   }
 
   // Handle song actions
-  const handleSongAction = (songId: number, action: string) => {
-    if (action === 'approve') {
-      setSongs(songs.map(song => 
-        song.id === songId ? { ...song, status: 'published' } : song
-      ))
-    } else if (action === 'reject') {
-      setSongs(songs.map(song => 
-        song.id === songId ? { ...song, status: 'rejected' } : song
-      ))
-    } else if (action === 'delete') {
-      setSongs(songs.filter(song => song.id !== songId))
+  const handleSongAction = async (songId: number, action: string) => {
+    try {
+      const response = await fetch(`/api/admin/songs/${songId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      })
+
+      if (response.ok) {
+        fetchSongs() // Refresh song list
+      }
+    } catch (error) {
+      console.error('Error updating song:', error)
     }
   }
 
   // Handle report actions
-  const handleReportAction = (reportId: number, action: string) => {
-    if (action === 'review') {
-      setReportedContent(reportedContent.map(report => 
-        report.id === reportId ? { ...report, status: 'reviewed' } : report
-      ))
-    } else if (action === 'delete') {
-      setReportedContent(reportedContent.filter(report => report.id !== reportId))
+  const handleReportAction = async (reportId: number, action: string) => {
+    try {
+      const response = await fetch(`/api/admin/reports/${reportId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      })
+
+      if (response.ok) {
+        fetchReports() // Refresh report list
+      }
+    } catch (error) {
+      console.error('Error updating report:', error)
     }
+  }
+
+  // Format time ago
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMins / 60)
+    const diffDays = Math.floor(diffHours / 24)
+
+    if (diffMins < 1) return 'just now'
+    if (diffMins < 60) return `${diffMins} min ago`
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
   }
 
   // Statistics cards
@@ -343,8 +492,33 @@ export default function AdminPage() {
             </div>
           </div>
 
+          {/* Loading States */}
+          {loading.stats && activeTab === 'dashboard' && (
+            <div className="flex justify-center items-center py-20">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+            </div>
+          )}
+
+          {loading.users && activeTab === 'users' && (
+            <div className="flex justify-center items-center py-20">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+            </div>
+          )}
+
+          {loading.songs && activeTab === 'songs' && (
+            <div className="flex justify-center items-center py-20">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+            </div>
+          )}
+
+          {loading.reports && activeTab === 'reports' && (
+            <div className="flex justify-center items-center py-20">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+            </div>
+          )}
+
           {/* Dashboard Content */}
-          {activeTab === 'dashboard' && (
+          {activeTab === 'dashboard' && !loading.stats && (
             <>
               {/* Statistics Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -371,27 +545,35 @@ export default function AdminPage() {
                     <button className="text-purple-400 text-sm">View All</button>
                   </div>
                   <div className="space-y-3">
-                    {recentActivities.map((activity) => (
-                      <div key={activity.id} className="flex items-center p-2 hover:bg-gray-800 rounded-lg">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
-                          activity.type === 'upload' ? 'bg-blue-500/20' :
-                          activity.type === 'report' ? 'bg-red-500/20' :
-                          activity.type === 'subscription' ? 'bg-green-500/20' :
-                          'bg-purple-500/20'
-                        }`}>
-                          {activity.type === 'upload' && '⬆️'}
-                          {activity.type === 'report' && '🚨'}
-                          {activity.type === 'subscription' && '💰'}
-                          {activity.type === 'playlist' && '📋'}
+                    {recentActivities.length > 0 ? (
+                      recentActivities.map((activity) => (
+                        <div key={activity.id} className="flex items-center p-2 hover:bg-gray-800 rounded-lg">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
+                            activity.type === 'upload' ? 'bg-blue-500/20' :
+                            activity.type === 'report' ? 'bg-red-500/20' :
+                            activity.type === 'subscription' ? 'bg-green-500/20' :
+                            'bg-purple-500/20'
+                          }`}>
+                            {activity.type === 'upload' && '⬆️'}
+                            {activity.type === 'report' && '🚨'}
+                            {activity.type === 'subscription' && '💰'}
+                            {activity.type === 'playlist' && '📋'}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm">
+                              <span className="font-medium">{activity.user}</span> {activity.action}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {activity.created_at ? formatTimeAgo(activity.created_at) : activity.time}
+                            </p>
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <p className="text-sm">
-                            <span className="font-medium">{activity.user}</span> {activity.action}
-                          </p>
-                          <p className="text-xs text-gray-400">{activity.time}</p>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4 text-gray-400">
+                        No recent activities
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
 
@@ -433,14 +615,22 @@ export default function AdminPage() {
           )}
 
           {/* User Management */}
-          {activeTab === 'users' && (
+          {activeTab === 'users' && !loading.users && (
             <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
               <div className="p-4 border-b border-gray-800">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">User Management</h3>
-                  <button className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm">
-                    Add User
-                  </button>
+                  <div className="flex items-center space-x-4">
+                    <button 
+                      onClick={fetchUsers}
+                      className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-sm"
+                    >
+                      Refresh
+                    </button>
+                    <button className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm">
+                      Add User
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="overflow-x-auto">
@@ -455,60 +645,70 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((user) => (
-                      <tr key={user.id} className="border-b border-gray-800 hover:bg-gray-800/50">
-                        <td className="p-4">
-                          <div className="flex items-center">
-                            <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center mr-3">
-                              <span className="text-sm">👤</span>
+                    {users.length > 0 ? (
+                      users.map((user) => (
+                        <tr key={user.id} className="border-b border-gray-800 hover:bg-gray-800/50">
+                          <td className="p-4">
+                            <div className="flex items-center">
+                              <div className="w-8 h-8 bg-gray-800 rounded-full flex items-center justify-center mr-3">
+                                <span className="text-sm">👤</span>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium">{user.name}</p>
+                                <p className="text-xs text-gray-400">{user.email}</p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="text-sm font-medium">{user.name}</p>
-                              <p className="text-xs text-gray-400">{user.email}</p>
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              user.role === 'admin' ? 'bg-purple-500/20 text-purple-400' :
+                              user.role === 'artist' ? 'bg-blue-500/20 text-blue-400' :
+                              user.role === 'premium' ? 'bg-yellow-500/20 text-yellow-400' :
+                              'bg-gray-500/20 text-gray-400'
+                            }`}>
+                              {user.role}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              user.status === 'active' ? 'bg-green-500/20 text-green-400' :
+                              'bg-red-500/20 text-red-400'
+                            }`}>
+                              {user.status}
+                            </span>
+                          </td>
+                          <td className="p-4 text-sm text-gray-400">
+                            {user.joined || new Date().toLocaleDateString()}
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => handleUserAction(user.id, user.status === 'active' ? 'suspend' : 'activate')}
+                                className={`px-3 py-1 rounded text-xs ${
+                                  user.status === 'active'
+                                    ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400'
+                                    : 'bg-green-500/20 hover:bg-green-500/30 text-green-400'
+                                }`}
+                              >
+                                {user.status === 'active' ? 'Suspend' : 'Activate'}
+                              </button>
+                              <button
+                                onClick={() => handleUserAction(user.id, 'delete')}
+                                className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-xs"
+                              >
+                                Delete
+                              </button>
                             </div>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            user.role === 'admin' ? 'bg-purple-500/20 text-purple-400' :
-                            user.role === 'artist' ? 'bg-blue-500/20 text-blue-400' :
-                            user.role === 'premium' ? 'bg-yellow-500/20 text-yellow-400' :
-                            'bg-gray-500/20 text-gray-400'
-                          }`}>
-                            {user.role}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            user.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                            'bg-red-500/20 text-red-400'
-                          }`}>
-                            {user.status}
-                          </span>
-                        </td>
-                        <td className="p-4 text-sm text-gray-400">{user.joined}</td>
-                        <td className="p-4">
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => handleUserAction(user.id, user.status === 'active' ? 'suspend' : 'activate')}
-                              className={`px-3 py-1 rounded text-xs ${
-                                user.status === 'active'
-                                  ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400'
-                                  : 'bg-green-500/20 hover:bg-green-500/30 text-green-400'
-                              }`}
-                            >
-                              {user.status === 'active' ? 'Suspend' : 'Activate'}
-                            </button>
-                            <button
-                              onClick={() => handleUserAction(user.id, 'delete')}
-                              className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-xs"
-                            >
-                              Delete
-                            </button>
-                          </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-gray-400">
+                          No users found
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -516,7 +716,7 @@ export default function AdminPage() {
           )}
 
           {/* Song Management */}
-          {activeTab === 'songs' && (
+          {activeTab === 'songs' && !loading.songs && (
             <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
               <div className="p-4 border-b border-gray-800">
                 <div className="flex items-center justify-between">
@@ -533,6 +733,12 @@ export default function AdminPage() {
                       <option>Pop</option>
                       <option>Rock</option>
                     </select>
+                    <button 
+                      onClick={fetchSongs}
+                      className="px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded text-sm"
+                    >
+                      Refresh
+                    </button>
                   </div>
                 </div>
               </div>
@@ -549,60 +755,68 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {songs.map((song) => (
-                      <tr key={song.id} className="border-b border-gray-800 hover:bg-gray-800/50">
-                        <td className="p-4">
-                          <div className="flex items-center">
-                            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mr-3">
-                              <span className="text-xs font-bold">S</span>
+                    {songs.length > 0 ? (
+                      songs.map((song) => (
+                        <tr key={song.id} className="border-b border-gray-800 hover:bg-gray-800/50">
+                          <td className="p-4">
+                            <div className="flex items-center">
+                              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mr-3">
+                                <span className="text-xs font-bold">S</span>
+                              </div>
+                              <p className="text-sm font-medium">{song.title}</p>
                             </div>
-                            <p className="text-sm font-medium">{song.title}</p>
-                          </div>
-                        </td>
-                        <td className="p-4 text-sm text-gray-400">{song.artist}</td>
-                        <td className="p-4">
-                          <span className="px-2 py-1 bg-gray-800 rounded-full text-xs">
-                            {song.genre}
-                          </span>
-                        </td>
-                        <td className="p-4 text-sm text-gray-400">{song.plays.toLocaleString()}</td>
-                        <td className="p-4">
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            song.status === 'published' ? 'bg-green-500/20 text-green-400' :
-                            song.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                            'bg-red-500/20 text-red-400'
-                          }`}>
-                            {song.status}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center space-x-2">
-                            {song.status === 'pending' && (
+                          </td>
+                          <td className="p-4 text-sm text-gray-400">{song.artist}</td>
+                          <td className="p-4">
+                            <span className="px-2 py-1 bg-gray-800 rounded-full text-xs">
+                              {song.genre || 'Unknown'}
+                            </span>
+                          </td>
+                          <td className="p-4 text-sm text-gray-400">{song.plays.toLocaleString()}</td>
+                          <td className="p-4">
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              song.status === 'published' ? 'bg-green-500/20 text-green-400' :
+                              song.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                              'bg-red-500/20 text-red-400'
+                            }`}>
+                              {song.status}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center space-x-2">
+                              {song.status === 'pending' && (
+                                <button
+                                  onClick={() => handleSongAction(song.id, 'approve')}
+                                  className="px-3 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded text-xs"
+                                >
+                                  Approve
+                                </button>
+                              )}
+                              {song.status === 'pending' && (
+                                <button
+                                  onClick={() => handleSongAction(song.id, 'reject')}
+                                  className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded text-xs"
+                                >
+                                  Reject
+                                </button>
+                              )}
                               <button
-                                onClick={() => handleSongAction(song.id, 'approve')}
-                                className="px-3 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded text-xs"
+                                onClick={() => handleSongAction(song.id, 'delete')}
+                                className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-xs"
                               >
-                                Approve
+                                Delete
                               </button>
-                            )}
-                            {song.status === 'pending' && (
-                              <button
-                                onClick={() => handleSongAction(song.id, 'reject')}
-                                className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded text-xs"
-                              >
-                                Reject
-                              </button>
-                            )}
-                            <button
-                              onClick={() => handleSongAction(song.id, 'delete')}
-                              className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-xs"
-                            >
-                              Delete
-                            </button>
-                          </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-gray-400">
+                          No songs found
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -610,10 +824,18 @@ export default function AdminPage() {
           )}
 
           {/* Reports Management */}
-          {activeTab === 'reports' && (
+          {activeTab === 'reports' && !loading.reports && (
             <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
               <div className="p-4 border-b border-gray-800">
-                <h3 className="text-lg font-semibold">Reported Content</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">Reported Content</h3>
+                  <button 
+                    onClick={fetchReports}
+                    className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-sm"
+                  >
+                    Refresh
+                  </button>
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -628,50 +850,58 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {reportedContent.map((report) => (
-                      <tr key={report.id} className="border-b border-gray-800 hover:bg-gray-800/50">
-                        <td className="p-4">
-                          <p className="text-sm font-medium">{report.song}</p>
-                        </td>
-                        <td className="p-4 text-sm text-gray-400">{report.artist}</td>
-                        <td className="p-4 text-sm text-gray-400">{report.reporter}</td>
-                        <td className="p-4">
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            report.reason === 'Copyright' ? 'bg-red-500/20 text-red-400' :
-                            report.reason === 'Explicit Content' ? 'bg-yellow-500/20 text-yellow-400' :
-                            'bg-purple-500/20 text-purple-400'
-                          }`}>
-                            {report.reason}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            report.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                            'bg-green-500/20 text-green-400'
-                          }`}>
-                            {report.status}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center space-x-2">
-                            {report.status === 'pending' && (
+                    {reportedContent.length > 0 ? (
+                      reportedContent.map((report) => (
+                        <tr key={report.id} className="border-b border-gray-800 hover:bg-gray-800/50">
+                          <td className="p-4">
+                            <p className="text-sm font-medium">{report.song}</p>
+                          </td>
+                          <td className="p-4 text-sm text-gray-400">{report.artist}</td>
+                          <td className="p-4 text-sm text-gray-400">{report.reporter}</td>
+                          <td className="p-4">
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              report.reason === 'Copyright' ? 'bg-red-500/20 text-red-400' :
+                              report.reason === 'Explicit Content' ? 'bg-yellow-500/20 text-yellow-400' :
+                              'bg-purple-500/20 text-purple-400'
+                            }`}>
+                              {report.reason}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              report.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                              'bg-green-500/20 text-green-400'
+                            }`}>
+                              {report.status}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center space-x-2">
+                              {report.status === 'pending' && (
+                                <button
+                                  onClick={() => handleReportAction(report.id, 'review')}
+                                  className="px-3 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded text-xs"
+                                >
+                                  Review
+                                </button>
+                              )}
                               <button
-                                onClick={() => handleReportAction(report.id, 'review')}
-                                className="px-3 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded text-xs"
+                                onClick={() => handleReportAction(report.id, 'delete')}
+                                className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-xs"
                               >
-                                Review
+                                Delete
                               </button>
-                            )}
-                            <button
-                              onClick={() => handleReportAction(report.id, 'delete')}
-                              className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-xs"
-                            >
-                              Delete
-                            </button>
-                          </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-gray-400">
+                          No reported content found
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>

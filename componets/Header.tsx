@@ -17,9 +17,24 @@ export default function Header() {
   const [isScrolled, setIsScrolled] = useState<boolean>(false)
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [showDropdown, setShowDropdown] = useState<boolean>(false)
+  const [isMobile, setIsMobile] = useState<boolean>(false)
   const router = useRouter()
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
+
+  // Check if mobile on mount and resize
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768) // 768px is typical md breakpoint
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile)
+    }
+  }, [])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -49,8 +64,8 @@ export default function Header() {
       }
     }
 
-    // Prevent body scroll when dropdown is open on mobile
-    if (showDropdown) {
+    // Prevent body scroll when mobile dropdown is open
+    if (showDropdown && isMobile) {
       document.body.style.overflow = 'hidden'
       document.addEventListener('keydown', handleEscapeKey)
     } else {
@@ -63,7 +78,7 @@ export default function Header() {
       document.removeEventListener('keydown', handleEscapeKey)
       document.body.style.overflow = '' // Cleanup on unmount
     }
-  }, [showDropdown])
+  }, [showDropdown, isMobile])
 
   // Check if user is logged in
   useEffect(() => {
@@ -240,6 +255,84 @@ export default function Header() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
+                  
+                  {/* Desktop Dropdown (hidden on mobile) */}
+                  {!isMobile && showDropdown && (
+                    <div 
+                      className="absolute right-0 mt-2 w-56 bg-gray-900/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 py-2 z-[100] animate-fadeIn"
+                      style={{ 
+                        position: 'absolute',
+                        top: '100%',
+                        right: 0,
+                        marginTop: '0.5rem',
+                        overflow: 'visible'
+                      }}
+                    >
+                      <div className="px-4 py-3 border-b border-white/10">
+                        <p className="text-sm text-white/90 font-medium truncate">{user.name}</p>
+                        <p className="text-xs text-white/60 truncate">{user.email}</p>
+                      </div>
+                      
+                      <div className="py-1">
+                        <Link
+                          href="/profile"
+                          onClick={() => setShowDropdown(false)}
+                          className="flex items-center space-x-3 px-4 py-3 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-300"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <span className="text-sm">My Profile</span>
+                        </Link>
+                        
+                        <Link
+                          href="/library"
+                          onClick={() => setShowDropdown(false)}
+                          className="flex items-center space-x-3 px-4 py-3 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-300"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                          </svg>
+                          <span className="text-sm">My Library</span>
+                        </Link>
+                        
+                        <Link
+                          href="/uploads"
+                          onClick={() => setShowDropdown(false)}
+                          className="flex items-center space-x-3 px-4 py-3 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-300"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                          <span className="text-sm">My Uploads</span>
+                        </Link>
+                        
+                        <Link
+                          href="/settings"
+                          onClick={() => setShowDropdown(false)}
+                          className="flex items-center space-x-3 px-4 py-3 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-300"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          <span className="text-sm">Settings</span>
+                        </Link>
+                        
+                        <div className="border-t border-white/10 my-1"></div>
+                        
+                        <button
+                          onClick={handleLogout}
+                          className="flex items-center space-x-3 w-full text-left px-4 py-3 text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors duration-300"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                          </svg>
+                          <span className="text-sm">Logout</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="flex items-center space-x-4">
@@ -262,8 +355,8 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Full Screen Mobile Dropdown */}
-      {showDropdown && user && (
+      {/* Mobile Full Screen Dropdown */}
+      {isMobile && showDropdown && user && (
         <>
           {/* Backdrop Overlay */}
           <div 
@@ -273,7 +366,6 @@ export default function Header() {
           
           {/* Full Screen Dropdown Menu */}
           <div 
-            ref={dropdownRef}
             className="fixed inset-0 z-[101] flex flex-col animate-slideUp"
           >
             {/* Header with user info and close button */}
@@ -409,16 +501,6 @@ export default function Header() {
           animation: floatNote 8s linear infinite;
         }
 
-        /* Music note positions (keep your existing positions) */
-        .music-note:nth-child(1) { top: 10%; left: 5%; animation-delay: 0s; }
-        .music-note:nth-child(2) { top: 20%; left: 15%; animation-delay: 1s; }
-        .music-note:nth-child(3) { top: 15%; left: 25%; animation-delay: 2s; }
-        .music-note:nth-child(4) { top: 25%; left: 35%; animation-delay: 3s; }
-        .music-note:nth-child(5) { top: 10%; left: 45%; animation-delay: 4s; }
-        .music-note:nth-child(6) { top: 20%; left: 55%; animation-delay: 5s; }
-        .music-note:nth-child(7) { top: 15%; left: 65%; animation-delay: 6s; }
-        .music-note:nth-child(8) { top: 25%; left: 75%; animation-delay: 7s; }
-
         @keyframes floatNote {
           0% {
             transform: translateY(100%) rotate(0deg);
@@ -460,29 +542,6 @@ export default function Header() {
 
         .animate-slideUp {
           animation: slideUp 0.3s ease-out;
-        }
-
-        /* Responsive design: Show full screen on mobile, regular dropdown on desktop */
-        @media (min-width: 768px) {
-          .fixed.inset-0.z-\\[101\\] {
-            display: none !important;
-          }
-          
-          .fixed.inset-0.bg-black\\/70 {
-            display: none !important;
-          }
-          
-          /* Show regular dropdown on desktop */
-          .relative .absolute {
-            display: block !important;
-          }
-        }
-
-        @media (max-width: 767px) {
-          /* Hide regular dropdown on mobile */
-          .relative .absolute {
-            display: none !important;
-          }
         }
       `}</style>
     </header>
